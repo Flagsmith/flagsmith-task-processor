@@ -1,0 +1,55 @@
+name: Unit tests, linting & formatting
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Flagsmith Workflows Unit Tests
+
+    services:
+      postgres:
+        image: postgres:11.12-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: ['3.10', '3.11']
+
+    steps:
+      - name: Cloning repo
+        uses: actions/checkout@v3
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'poetry'
+
+      - name: Install Dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install
+
+      - name: Run Linters
+        run: | 
+          poetry run black --check .
+          poetry run isort --check-only --diff .
+          poetry run flake8
+
+      - name: Check for missing migrations
+        run: poetry run python manage.py makemigrations --no-input --dry-run --check
+
+      - name: Run Tests
+        run: poetry run pytest tests/unit
