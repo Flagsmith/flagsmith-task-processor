@@ -1,7 +1,6 @@
 import logging
 import signal
 import time
-import typing
 from argparse import ArgumentParser
 from datetime import timedelta
 
@@ -25,7 +24,7 @@ class Command(BaseCommand):
         signal.signal(signal.SIGINT, self._exit_gracefully)
         signal.signal(signal.SIGTERM, self._exit_gracefully)
 
-        self._threads: typing.List[TaskRunner] = []
+        self._threads: list[TaskRunner] = []
         self._monitor_threads = True
 
     def add_arguments(self, parser: ArgumentParser):
@@ -96,7 +95,7 @@ class Command(BaseCommand):
 
     def _get_unhealthy_threads(
         self, ms_before_unhealthy: int
-    ) -> typing.List[TaskRunner]:
+    ) -> list[TaskRunner]:
         unhealthy_threads = []
         healthy_threshold = timezone.now() - timedelta(milliseconds=ms_before_unhealthy)
 
