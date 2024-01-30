@@ -41,7 +41,7 @@ readme = "readme.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-django = "~3.2.23"
+django = "^3.2.23"
 django-health-check = "~3.14.3"
 backoff = "~2.2.1"
 simplejson = "~3.19.1"
