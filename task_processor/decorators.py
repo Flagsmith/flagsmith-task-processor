@@ -67,6 +67,7 @@ class TaskHandler(typing.Generic[P]):
         kwargs = kwargs or {}
 
         if delay_until and settings.TASK_RUN_METHOD != TaskRunMethod.TASK_PROCESSOR:
+            # TODO: consider not having this silently fail?
             logger.warning(
                 "Cannot schedule tasks to run in the future without task processor."
             )
