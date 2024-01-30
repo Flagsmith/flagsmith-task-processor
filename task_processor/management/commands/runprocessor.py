@@ -93,9 +93,7 @@ class Command(BaseCommand):
         for t in self._threads:
             t.stop()
 
-    def _get_unhealthy_threads(
-        self, ms_before_unhealthy: int
-    ) -> list[TaskRunner]:
+    def _get_unhealthy_threads(self, ms_before_unhealthy: int) -> list[TaskRunner]:
         unhealthy_threads = []
         healthy_threshold = timezone.now() - timedelta(milliseconds=ms_before_unhealthy)
 
