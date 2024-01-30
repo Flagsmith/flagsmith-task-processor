@@ -1,5 +1,3 @@
-from typing import Optional
-
 from django.contrib import admin
 
 from task_processor.models import RecurringTask
@@ -16,7 +14,7 @@ class RecurringTaskAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("args", "kwargs")
 
-    def last_run_status(self, instance: RecurringTask) -> Optional[str]:
+    def last_run_status(self, instance: RecurringTask) -> str | None:
         if last_run := instance.task_runs.order_by("-started_at").first():
             return last_run.result
         return None
