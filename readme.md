@@ -5,7 +5,8 @@ This repository holds the code responsible for the Flagsmith Task Processor func
 ## Development
 
 This repository contains a django app that is intended to be used only when integrated 
-with the main [Flagsmith repository](https://github.com/flagsmith/flagsmith).
+with the main [Flagsmith repository](https://github.com/flagsmith/flagsmith) or other 
+Flagsmith dependencies. 
 
 ### Local Setup
 
@@ -15,7 +16,8 @@ commands to set up a local development environment and run the unit tests.
 ```bash
 pip install poetry
 poetry install
-poetry run tests/unit
+export DJANGO_SETTINGS_MODULE=tests.settings DATABASE_URL=postgres://postgres:password@localhost:5432/flagsmith_task_processor
+poetry run pytest tests/unit
 ```
 
 ### Testing
