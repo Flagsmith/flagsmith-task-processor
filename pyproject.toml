@@ -66,3 +66,8 @@ pytest-django = "^4.6.0"
 django-capture-on-commit-callbacks = "^1.11.0"
 pytest-freezegun = "~0.4.2"
 isort = "~5.13.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
