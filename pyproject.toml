@@ -38,7 +38,7 @@ version = "1.0.0"
 description = "Task Processor plugin for Flagsmith application."
 authors = ["Flagsmith <support@flagsmith.com>"]
 readme = "readme.md"
-include = ["migrations/sql/*.sql"]
+include = ["migrations/sql/*"]
 packages = [{ include = "task_processor"}]
 
 [tool.poetry.dependencies]
