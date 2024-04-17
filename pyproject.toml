@@ -24,12 +24,12 @@ exclude = '''
 '''
 
 [tool.isort]
-use_parentheses=true
-multi_line_output=3
-include_trailing_comma=true
-line_length=79
-known_first_party=['task_processor']
-known_third_party=['django', 'rest_framework', 'saml2', 'drf_yasg2', 'pytest']
+use_parentheses = true
+multi_line_output = 3
+include_trailing_comma = true
+line_length = 79
+known_first_party = ['task_processor']
+known_third_party = ['django', 'rest_framework', 'saml2', 'drf_yasg2', 'pytest']
 skip = ['migrations', 'flagsmith', '.venv']
 
 [tool.poetry]
@@ -39,19 +39,19 @@ description = "Task Processor plugin for Flagsmith application."
 authors = ["Flagsmith <support@flagsmith.com>"]
 readme = "readme.md"
 include = [{ path = "migrations/sql/*", format = ["sdist", "wheel"] }]
-packages = [{ include = "task_processor"}]
+packages = [{ include = "task_processor" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
 django = "^3.2.23"
-django-health-check = "~3.14.3"
-backoff = "~2.2.1"
-simplejson = "~3.19.1"
-djangorestframework = "~3.12.1"
-drf-yasg = "~1.21.6"
-dj-database-url = "~0.5.0"
-environs = "~9.2.0"
-psycopg2-binary = "~2.9.5"
+django-health-check = "^3.14.3"
+backoff = "^2.2.1"
+simplejson = "^3.19.1"
+djangorestframework = "^3.12.1"
+drf-yasg = "^1.21.6"
+dj-database-url = "^0.5.0"
+environs = "^9.2.0"
+psycopg2-binary = "^2.9.5"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "~3.0.4"
