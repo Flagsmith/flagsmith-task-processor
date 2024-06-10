@@ -234,17 +234,21 @@ Django = ">=3.2"
 
 [[package]]
 name = "django-health-check"
-version = "3.14.3"
+version = "3.18.2"
 description = "Run checks on services like databases, queue servers, celery processes, etc."
 optional = false
-python-versions = "*"
+python-versions = ">=3.8"
 files = [
-    {file = "django-health-check-3.14.3.tar.gz", hash = "sha256:6e84e7a3e5f1fcb82b7692833fa205bc274415850d333d5a50259de06080dfa8"},
-    {file = "django_health_check-3.14.3-py2.py3-none-any.whl", hash = "sha256:d5f5cbf3c34bc5ea297696e183c5084b0c15d3bd13d9eb997c25258241589c75"},
+    {file = "django_health_check-3.18.2-py2.py3-none-any.whl", hash = "sha256:16f9c9186236cbc2858fa0d0ecc3566ba2ad2b72683e5678d0d58eb9e8bbba1a"},
+    {file = "django_health_check-3.18.2.tar.gz", hash = "sha256:21235120f8d756fa75ba430d0b0dbb04620fbd7bfac92ed6a0b911915ba38918"},
 ]
 
 [package.dependencies]
-django = ">=1.11"
+django = ">=2.2"
+
+[package.extras]
+docs = ["sphinx"]
+test = ["boto3", "celery", "django-storages", "pytest", "pytest-cov", "pytest-django", "redis"]
 
 [[package]]
 name = "djangorestframework"
@@ -1196,4 +1200,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "2bb928d345cd72ba14ae439c8fefd490a73165f448a87ccc15a821df81477bba"
+content-hash = "3319f45c912464d50977adc4b3cc7689bbaf368d9335f4686ffcac93690440bb"
