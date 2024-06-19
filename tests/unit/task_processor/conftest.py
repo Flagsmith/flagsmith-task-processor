@@ -10,9 +10,8 @@ def run_by_processor(monkeypatch):
 
 
 class GetTaskProcessorCaplog(typing.Protocol):
-    def __call__(
-        self, log_level: str | int = logging.INFO
-    ) -> pytest.LogCaptureFixture: ...
+    def __call__(self, log_level: str | int = logging.INFO) -> pytest.LogCaptureFixture:
+        ...
 
 
 @pytest.fixture
