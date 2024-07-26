@@ -1,3 +1,4 @@
+import typing
 import logging
 from typing import Type
 
@@ -6,7 +7,10 @@ from django.db import DatabaseError
 from pytest_mock import MockerFixture
 
 from task_processor.threads import TaskRunner
-from tests.unit.task_processor.conftest import GetTaskProcessorCaplog
+
+if typing.TYPE_CHECKING:
+    # This import breaks private-package-test workflow in core
+    from tests.unit.task_processor.conftest import GetTaskProcessorCaplog
 
 
 @pytest.mark.parametrize(
@@ -16,7 +20,7 @@ from tests.unit.task_processor.conftest import GetTaskProcessorCaplog
 def test_task_runner_is_resilient_to_errors(
     db: None,
     mocker: MockerFixture,
-    get_task_processor_caplog: GetTaskProcessorCaplog,
+    get_task_processor_caplog: "GetTaskProcessorCaplog",
     exception_class: Type[Exception],
     exception_message: str,
 ) -> None:
