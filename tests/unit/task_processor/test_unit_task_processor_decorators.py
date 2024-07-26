@@ -4,6 +4,7 @@ from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
+from pytest_django import DjangoCaptureOnCommitCallbacks
 from pytest_django.fixtures import SettingsWrapper
 from pytest_mock import MockerFixture
 
@@ -11,7 +12,6 @@ from task_processor.decorators import (
     register_recurring_task,
     register_task_handler,
 )
-from pytest_django import DjangoCaptureOnCommitCallbacks
 from task_processor.exceptions import InvalidArgumentsError
 from task_processor.models import RecurringTask, Task, TaskPriority
 from task_processor.task_registry import get_task

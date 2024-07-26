@@ -1,5 +1,5 @@
-import typing
 import logging
+import typing
 from typing import Type
 
 import pytest
