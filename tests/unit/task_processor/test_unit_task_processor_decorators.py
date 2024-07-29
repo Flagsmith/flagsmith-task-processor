@@ -1,9 +1,10 @@
 import json
+import typing
 from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
-from django_capture_on_commit_callbacks import capture_on_commit_callbacks
+from pytest_django import DjangoCaptureOnCommitCallbacks
 from pytest_django.fixtures import SettingsWrapper
 from pytest_mock import MockerFixture
 
@@ -15,7 +16,10 @@ from task_processor.exceptions import InvalidArgumentsError
 from task_processor.models import RecurringTask, Task, TaskPriority
 from task_processor.task_registry import get_task
 from task_processor.task_run_method import TaskRunMethod
-from tests.unit.task_processor.conftest import GetTaskProcessorCaplog
+
+if typing.TYPE_CHECKING:
+    # This import breaks private-package-test workflow in core
+    from tests.unit.task_processor.conftest import GetTaskProcessorCaplog
 
 
 @pytest.fixture
@@ -31,8 +35,9 @@ def mock_thread_class(
 
 @pytest.mark.django_db
 def test_register_task_handler_run_in_thread__transaction_commit__true__default(
-    get_task_processor_caplog: GetTaskProcessorCaplog,
+    get_task_processor_caplog: "GetTaskProcessorCaplog",
     mock_thread_class: MagicMock,
+    django_capture_on_commit_callbacks: DjangoCaptureOnCommitCallbacks,
 ) -> None:
     # Given
     caplog = get_task_processor_caplog()
@@ -47,9 +52,7 @@ def test_register_task_handler_run_in_thread__transaction_commit__true__default(
     kwargs = {"bar": "baz"}
 
     # When
-    # TODO Switch to pytest-django's django_capture_on_commit_callbacks
-    # fixture when migrating to Django 4
-    with capture_on_commit_callbacks(execute=True):
+    with django_capture_on_commit_callbacks(execute=True):
         my_function.run_in_thread(args=args, kwargs=kwargs)
 
     # Then
@@ -65,7 +68,7 @@ def test_register_task_handler_run_in_thread__transaction_commit__true__default(
 
 
 def test_register_task_handler_run_in_thread__transaction_commit__false(
-    get_task_processor_caplog: GetTaskProcessorCaplog,
+    get_task_processor_caplog: "GetTaskProcessorCaplog",
     mock_thread_class: MagicMock,
 ) -> None:
     # Given
