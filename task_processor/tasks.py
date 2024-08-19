@@ -37,19 +37,16 @@ def clean_up_old_tasks():
         query = query | Q(num_failures__gte=3)
     query = Q(scheduled_for__lt=delete_before) & query
 
-    # We define the query in the loop and in the delete query to avoid having
-    # an infinite loop since we need to verify if there are records in the qs
-    # on each iteration of the loop. Defining the queryset outside of the
-    # loop condition leads to queryset.exists() always returning true resulting
-    # in an infinite loop.
     # TODO: validate if deleting in batches is more / less impactful on the DB
-    while Task.objects.filter(query).exists():
+    while True:
         # delete in batches of settings.TASK_DELETE_BATCH_SIZE
-        Task.objects.filter(
+        deleted_tasks = Task.objects.filter(
             pk__in=Task.objects.filter(query).values_list("id", flat=True)[
                 0 : settings.TASK_DELETE_BATCH_SIZE  # noqa:E203
             ]
         ).delete()
+        if deleted_tasks[0] == 0:
+            break
 
 
 @register_recurring_task(
