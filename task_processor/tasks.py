@@ -40,12 +40,12 @@ def clean_up_old_tasks():
     # TODO: validate if deleting in batches is more / less impactful on the DB
     while True:
         # delete in batches of settings.TASK_DELETE_BATCH_SIZE
-        deleted_tasks = Task.objects.filter(
+        num_tasks_deleted, _ = Task.objects.filter(
             pk__in=Task.objects.filter(query).values_list("id", flat=True)[
                 0 : settings.TASK_DELETE_BATCH_SIZE  # noqa:E203
             ]
         ).delete()
-        if deleted_tasks[0] == 0:
+        if num_tasks_deleted == 0:
             break
 
 
