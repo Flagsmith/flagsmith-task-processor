@@ -68,15 +68,14 @@ def test_clean_up_old_tasks(settings, django_assert_num_queries, db):
     )
 
     # When
-    with django_assert_num_queries(9):
+    with django_assert_num_queries(7):
         # We expect 9 queries to be run here since we have set the delete batch size to 1 and there are 2
-        # tasks we expect it to delete. Therefore, we have 2 loops, each consisting of 4 queries:
-        #  1. Check if any tasks matching the query exist
-        #  2. Grab the ids of any matching tasks
-        #  3. Delete all TaskRun objects for those task_id values
-        #  4. Delete all Task objects for those ids
+        # tasks we expect it to delete. Therefore, we have 2 loops, each consisting of 3 queries:
+        #  1. Grab the ids of any matching tasks
+        #  2. Delete all TaskRun objects for those task_id values
+        #  3. Delete all Task objects for those ids
         #
-        # The final (9th) query is checking if any tasks exist again (which returns false).
+        # The final (7th) query is checking if any tasks match the delete filter (which returns false).
         clean_up_old_tasks()
 
     # Then

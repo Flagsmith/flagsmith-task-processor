@@ -20,3 +20,5 @@ RECURRING_TASK_RUN_RETENTION_DAYS = 15
 TASK_DELETE_BATCH_SIZE = 2000
 
 DATABASES = {"default": dj_database_url.parse(env("DATABASE_URL"))}
+
+USE_TZ = True
