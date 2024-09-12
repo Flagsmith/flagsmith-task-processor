@@ -4,6 +4,8 @@ from datetime import timedelta
 from unittest.mock import MagicMock
 
 import pytest
+from django.utils import timezone
+from freezegun.api import FrozenDateTimeFactory
 from pytest_django import DjangoCaptureOnCommitCallbacks
 from pytest_django.fixtures import SettingsWrapper
 from pytest_mock import MockerFixture
@@ -215,3 +217,23 @@ def test_can_create_task_with_priority(settings, db):
 
     # Then
     assert task.priority == TaskPriority.HIGH
+
+
+now = timezone.now()
+
+
+@pytest.mark.freeze_time(now)
+def test_delay_all_tasks_by_seconds(settings: SettingsWrapper, db: None):
+    # Given
+    settings.TASK_RUN_METHOD = TaskRunMethod.TASK_PROCESSOR
+    settings.DELAY_ALL_TASKS_BY_SECONDS = 10
+
+    @register_task_handler()
+    def my_function(*args, **kwargs):
+        pass
+
+    # When
+    task = my_function.delay()
+
+    # Then
+    assert task.scheduled_for == now + timedelta(seconds=settings.DELAY_ALL_TASKS_BY_SECONDS)

@@ -64,6 +64,12 @@ class TaskHandler(typing.Generic[P]):
     ) -> Task | None:
         logger.debug("Request to run task '%s' asynchronously.", self.task_identifier)
 
+        now = timezone.now()
+        add_delay_seconds = settings.DELAY_ALL_TASKS_BY_SECONDS
+
+        if add_delay_seconds and (delay_until is None or delay_until < now + timedelta(seconds=add_delay_seconds)):
+            delay_until = now + timedelta(seconds=add_delay_seconds)
+
         kwargs = kwargs or {}
 
         if delay_until and settings.TASK_RUN_METHOD != TaskRunMethod.TASK_PROCESSOR:
@@ -84,7 +90,7 @@ class TaskHandler(typing.Generic[P]):
             try:
                 task = Task.create(
                     task_identifier=self.task_identifier,
-                    scheduled_for=delay_until or timezone.now(),
+                    scheduled_for=delay_until or now,
                     priority=self.priority,
                     queue_size=self.queue_size,
                     args=args,
