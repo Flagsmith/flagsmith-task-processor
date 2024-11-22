@@ -1,4 +1,7 @@
+from datetime import datetime
 from django.contrib import admin
+from django.http import HttpRequest
+from django.db.models import QuerySet
 
 from task_processor.models import RecurringTask
 
@@ -18,3 +21,16 @@ class RecurringTaskAdmin(admin.ModelAdmin):
         if last_run := instance.task_runs.order_by("-started_at").first():
             return last_run.result
         return None
+
+    def last_run_finished_at(self, instance: RecurringTask) -> datetime | None:
+        if last_run := instance.task_runs.order_by("-started_at").first():
+            return last_run.finished_at
+        return None
+
+    @admin.action(description="Unlock selected tasks")
+    def unlock(
+        self,
+        request: HttpRequest,
+        queryset: QuerySet[RecurringTask],
+    ) -> None:
+        queryset.update(is_locked=False)
