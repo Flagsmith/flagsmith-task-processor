@@ -99,7 +99,7 @@ def _run_task(task: typing.Union[Task, RecurringTask]) -> typing.Tuple[Task, Tas
         task_run.finished_at = timezone.now()
         task.mark_success()
     except Exception as e:
-        logger.warning(
+        logger.error(
             "Failed to execute task '%s'. Exception was: %s",
             task.task_identifier,
             str(e),
