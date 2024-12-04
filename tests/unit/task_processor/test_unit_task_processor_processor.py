@@ -240,9 +240,9 @@ def test_run_task_runs_task_and_creates_task_run_object_when_failure(
 
     assert len(caplog.records) == 3
 
-    warning_log = caplog.records[0]
-    assert warning_log.levelname == "WARNING"
-    assert warning_log.message == (
+    log_record = caplog.records[0]
+    assert log_record.levelname == "ERROR"
+    assert log_record.message == (
         f"Failed to execute task '{task.task_identifier}'. Exception was: {msg}"
     )
 
