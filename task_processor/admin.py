@@ -1,7 +1,8 @@
 from datetime import datetime
+
 from django.contrib import admin
-from django.http import HttpRequest
 from django.db.models import QuerySet
+from django.http import HttpRequest
 
 from task_processor.models import RecurringTask
 
@@ -13,6 +14,7 @@ class RecurringTaskAdmin(admin.ModelAdmin):
         "task_identifier",
         "run_every",
         "last_run_status",
+        "last_run_finished_at",
         "is_locked",
     )
     readonly_fields = ("args", "kwargs")
