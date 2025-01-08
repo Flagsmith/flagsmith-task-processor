@@ -30,6 +30,8 @@ class AbstractBaseTask(models.Model):
     serialized_kwargs = models.TextField(blank=True, null=True)
     is_locked = models.BooleanField(default=False)
 
+    locked_at = models.DateTimeField(blank=True, null=True)
+
     class Meta:
         abstract = True
 
@@ -81,7 +83,7 @@ class AbstractBaseTask(models.Model):
 class Task(AbstractBaseTask):
     scheduled_for = models.DateTimeField(blank=True, null=True, default=timezone.now)
 
-    timeout = models.DurationField(null=True, blank=True)
+    timeout = models.DurationField(default=timedelta(minutes=1))
 
     # denormalise failures and completion so that we can use select_for_update
     num_failures = models.IntegerField(default=0)
@@ -112,7 +114,7 @@ class Task(AbstractBaseTask):
         *,
         args: typing.Tuple[typing.Any] = None,
         kwargs: typing.Dict[str, typing.Any] = None,
-        timeout: timedelta | None = None,
+        timeout: timedelta | None = timedelta(seconds=60),
     ) -> "Task":
         if queue_size and cls._is_queue_full(task_identifier, queue_size):
             raise TaskQueueFullError(
@@ -151,7 +153,6 @@ class Task(AbstractBaseTask):
 class RecurringTask(AbstractBaseTask):
     run_every = models.DurationField()
     first_run_time = models.TimeField(blank=True, null=True)
-    locked_at = models.DateTimeField(blank=True, null=True)
 
     timeout = models.DurationField(default=timedelta(minutes=30))
 

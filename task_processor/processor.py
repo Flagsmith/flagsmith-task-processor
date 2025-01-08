@@ -37,7 +37,8 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
 
         if executed_tasks:
             Task.objects.bulk_update(
-                executed_tasks, fields=["completed", "num_failures", "is_locked"]
+                executed_tasks,
+                fields=["completed", "num_failures", "is_locked", "locked_at"],
             )
 
         if task_runs:

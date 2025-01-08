@@ -70,6 +70,39 @@ def test_run_task_runs_task_and_creates_task_run_object_when_success(db):
     assert task.completed
 
 
+def test_run_tasks_runs_locked_task_after_tiemout(
+    db: None,
+) -> None:
+    # Given
+    task = Task.create(
+        _dummy_task.task_identifier,
+        timeout=timedelta(seconds=10),
+        scheduled_for=timezone.now(),
+    )
+    task.is_locked = True
+    task.locked_at = timezone.now() - timedelta(minutes=1)
+    task.save()
+
+    # When
+    assert cache.get(DEFAULT_CACHE_KEY) is None
+    task_runs = run_tasks()
+
+    # Then
+    assert cache.get(DEFAULT_CACHE_KEY) == DEFAULT_CACHE_VALUE
+
+    assert len(task_runs) == TaskRun.objects.filter(task=task).count() == 1
+    task_run = task_runs[0]
+    assert task_run.result == TaskResult.SUCCESS
+    assert task_run.started_at
+    assert task_run.finished_at
+    assert task_run.error_details is None
+
+    # And the task is no longer locked
+    task.refresh_from_db()
+    assert task.is_locked is False
+    assert task.locked_at is None
+
+
 def test_run_task_kills_task_after_timeout(
     db: None,
     get_task_processor_caplog: "GetTaskProcessorCaplog",
@@ -194,10 +227,11 @@ def test_run_recurring_tasks_runs_locked_task_after_tiemout(
     task.save()
 
     # When
+    assert cache.get(DEFAULT_CACHE_KEY) is None
     task_runs = run_recurring_tasks()
 
     # Then
-    assert cache.get(DEFAULT_CACHE_KEY)
+    assert cache.get(DEFAULT_CACHE_KEY) == DEFAULT_CACHE_VALUE
 
     assert len(task_runs) == RecurringTaskRun.objects.filter(task=task).count() == 1
     task_run = task_runs[0]
