@@ -12,5 +12,5 @@ class TaskManager(Manager):
 
 
 class RecurringTaskManager(Manager):
-    def get_tasks_to_process(self, num_tasks: int) -> QuerySet["RecurringTask"]:
-        return self.raw("SELECT * FROM get_recurringtasks_to_process(%s)", [num_tasks])
+    def get_tasks_to_process(self) -> QuerySet["RecurringTask"]:
+        return self.raw("SELECT * FROM get_recurringtasks_to_process()")

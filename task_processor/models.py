@@ -30,8 +30,6 @@ class AbstractBaseTask(models.Model):
     serialized_kwargs = models.TextField(blank=True, null=True)
     is_locked = models.BooleanField(default=False)
 
-    locked_at = models.DateTimeField(blank=True, null=True)
-
     class Meta:
         abstract = True
 
@@ -63,7 +61,6 @@ class AbstractBaseTask(models.Model):
 
     def unlock(self):
         self.is_locked = False
-        self.locked_at = None
 
     def run(self):
         return self.callable(*self.args, **self.kwargs)
@@ -83,7 +80,7 @@ class AbstractBaseTask(models.Model):
 class Task(AbstractBaseTask):
     scheduled_for = models.DateTimeField(blank=True, null=True, default=timezone.now)
 
-    timeout = models.DurationField(default=timedelta(minutes=1))
+    timeout = models.DurationField(blank=True, null=True)
 
     # denormalise failures and completion so that we can use select_for_update
     num_failures = models.IntegerField(default=0)
@@ -154,6 +151,7 @@ class RecurringTask(AbstractBaseTask):
     run_every = models.DurationField()
     first_run_time = models.TimeField(blank=True, null=True)
 
+    locked_at = models.DateTimeField(blank=True, null=True)
     timeout = models.DurationField(default=timedelta(minutes=30))
 
     objects = RecurringTaskManager()
@@ -165,6 +163,10 @@ class RecurringTask(AbstractBaseTask):
                 name="unique_run_every_tasks",
             ),
         ]
+
+    def unlock(self):
+        self.is_locked = False
+        self.locked_at = None
 
     @property
     def should_execute(self) -> bool:

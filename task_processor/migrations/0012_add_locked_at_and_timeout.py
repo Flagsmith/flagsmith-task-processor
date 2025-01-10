@@ -19,11 +19,6 @@ class Migration(migrations.Migration):
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name="task",
-            name="locked_at",
-            field=models.DateTimeField(blank=True, null=True),
-        ),
-        migrations.AddField(
             model_name="recurringtask",
             name="timeout",
             field=models.DurationField(default=datetime.timedelta(minutes=30)),
@@ -31,7 +26,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="task",
             name="timeout",
-            field=models.DurationField(default=datetime.timedelta(minutes=1)),
+            field=models.DurationField(blank=True, null=True),
         ),
         PostgresOnlyRunSQL.from_sql_file(
             os.path.join(
@@ -39,22 +34,6 @@ class Migration(migrations.Migration):
                 "sql",
                 "0012_get_recurringtasks_to_process.sql",
             ),
-            reverse_sql=os.path.join(
-                os.path.dirname(__file__),
-                "sql",
-                "0008_get_recurringtasks_to_process.sql",
-            ),
-        ),
-        PostgresOnlyRunSQL.from_sql_file(
-            os.path.join(
-                os.path.dirname(__file__),
-                "sql",
-                "0012_get_tasks_to_process.sql",
-            ),
-            reverse_sql=os.path.join(
-                os.path.dirname(__file__),
-                "sql",
-                "0011_get_tasks_to_process.sql",
-            ),
+            reverse_sql="DROP FUNCTION IF EXISTS get_recurringtasks_to_process()",
         ),
     ]

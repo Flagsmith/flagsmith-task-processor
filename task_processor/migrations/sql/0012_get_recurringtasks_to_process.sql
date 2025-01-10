@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION get_recurringtasks_to_process(num_tasks integer)
+CREATE OR REPLACE FUNCTION get_recurringtasks_to_process()
 RETURNS SETOF task_processor_recurringtask AS $$
 DECLARE
     row_to_return task_processor_recurringtask;
@@ -7,9 +7,10 @@ BEGIN
     FOR row_to_return IN
         SELECT *
         FROM task_processor_recurringtask
-        WHERE is_locked = FALSE OR (locked_at IS NOT NULL AND locked_at < NOW() - timeout)
+        -- Add one minute to the timeout as a grace period for overhead
+        WHERE is_locked = FALSE OR (locked_at IS NOT NULL AND locked_at < NOW() - timeout + INTERVAL '1 minute')
         ORDER BY id
-        LIMIT num_tasks
+        LIMIT 1
         -- Select for update to ensure that no other workers can select these tasks while in this transaction block
         FOR UPDATE SKIP LOCKED
     LOOP
