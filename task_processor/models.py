@@ -1,6 +1,6 @@
 import typing
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import simplejson as json
 from django.core.serializers.json import DjangoJSONEncoder
@@ -80,6 +80,8 @@ class AbstractBaseTask(models.Model):
 class Task(AbstractBaseTask):
     scheduled_for = models.DateTimeField(blank=True, null=True, default=timezone.now)
 
+    timeout = models.DurationField(blank=True, null=True)
+
     # denormalise failures and completion so that we can use select_for_update
     num_failures = models.IntegerField(default=0)
     completed = models.BooleanField(default=False)
@@ -109,6 +111,7 @@ class Task(AbstractBaseTask):
         *,
         args: typing.Tuple[typing.Any] = None,
         kwargs: typing.Dict[str, typing.Any] = None,
+        timeout: timedelta | None = timedelta(seconds=60),
     ) -> "Task":
         if queue_size and cls._is_queue_full(task_identifier, queue_size):
             raise TaskQueueFullError(
@@ -121,6 +124,7 @@ class Task(AbstractBaseTask):
             priority=priority,
             serialized_args=cls.serialize_data(args or tuple()),
             serialized_kwargs=cls.serialize_data(kwargs or dict()),
+            timeout=timeout,
         )
 
     @classmethod
@@ -147,6 +151,9 @@ class RecurringTask(AbstractBaseTask):
     run_every = models.DurationField()
     first_run_time = models.TimeField(blank=True, null=True)
 
+    locked_at = models.DateTimeField(blank=True, null=True)
+    timeout = models.DurationField(default=timedelta(minutes=30))
+
     objects = RecurringTaskManager()
 
     class Meta:
@@ -156,6 +163,10 @@ class RecurringTask(AbstractBaseTask):
                 name="unique_run_every_tasks",
             ),
         ]
+
+    def unlock(self):
+        self.is_locked = False
+        self.locked_at = None
 
     @property
     def should_execute(self) -> bool:

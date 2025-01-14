@@ -1,6 +1,7 @@
 import logging
 import traceback
 import typing
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 from django.utils import timezone
@@ -36,7 +37,8 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
 
         if executed_tasks:
             Task.objects.bulk_update(
-                executed_tasks, fields=["completed", "num_failures", "is_locked"]
+                executed_tasks,
+                fields=["completed", "num_failures", "is_locked"],
             )
 
         if task_runs:
@@ -48,14 +50,11 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
     return []
 
 
-def run_recurring_tasks(num_tasks: int = 1) -> typing.List[RecurringTaskRun]:
-    if num_tasks < 1:
-        raise ValueError("Number of tasks to process must be at least one")
-
+def run_recurring_tasks() -> typing.List[RecurringTaskRun]:
     # NOTE: We will probably see a lot of delay in the execution of recurring tasks
     # if the tasks take longer then `run_every` to execute. This is not
     # a problem for now, but we should be mindful of this limitation
-    tasks = RecurringTask.objects.get_tasks_to_process(num_tasks)
+    tasks = RecurringTask.objects.get_tasks_to_process()
     if tasks:
         task_runs = []
 
@@ -78,7 +77,7 @@ def run_recurring_tasks(num_tasks: int = 1) -> typing.List[RecurringTaskRun]:
 
         # update all tasks that were not deleted
         to_update = [task for task in tasks if task.id]
-        RecurringTask.objects.bulk_update(to_update, fields=["is_locked"])
+        RecurringTask.objects.bulk_update(to_update, fields=["is_locked", "locked_at"])
 
         if task_runs:
             RecurringTaskRun.objects.bulk_create(task_runs)
@@ -93,16 +92,25 @@ def _run_task(task: typing.Union[Task, RecurringTask]) -> typing.Tuple[Task, Tas
     task_run = task.task_runs.model(started_at=timezone.now(), task=task)
 
     try:
-        task.run()
-        task_run.result = TaskResult.SUCCESS
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(task.run)
+            timeout = task.timeout.total_seconds() if task.timeout else None
+            future.result(timeout=timeout)  # Wait for completion or timeout
 
+        task_run.result = TaskResult.SUCCESS
         task_run.finished_at = timezone.now()
         task.mark_success()
+
     except Exception as e:
+        # For errors that don't include a default message (e.g., TimeoutError),
+        # fall back to using repr.
+        err_msg = str(e) or repr(e)
+
         logger.error(
-            "Failed to execute task '%s'. Exception was: %s",
+            "Failed to execute task '%s', with id %d. Exception: %s",
             task.task_identifier,
-            str(e),
+            task.id,
+            err_msg,
             exc_info=True,
         )
         logger.debug("args: %s", str(task.args))

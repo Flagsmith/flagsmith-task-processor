@@ -34,7 +34,7 @@ class TaskRunner(Thread):
     def run_iteration(self) -> None:
         try:
             run_tasks(self.queue_pop_size)
-            run_recurring_tasks(self.queue_pop_size)
+            run_recurring_tasks()
         except Exception as e:
             # To prevent task threads from dying if they get an error retrieving the tasks from the
             # database this will allow the thread to continue trying to retrieve tasks if it can

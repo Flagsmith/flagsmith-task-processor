@@ -1,5 +1,6 @@
 import logging
 import time
+import typing
 import uuid
 from datetime import timedelta
 from threading import Thread
@@ -8,6 +9,7 @@ import pytest
 from django.core.cache import cache
 from django.utils import timezone
 from freezegun import freeze_time
+from pytest import MonkeyPatch
 
 from task_processor.decorators import (
     register_recurring_task,
@@ -27,6 +29,11 @@ from task_processor.processor import (
     run_tasks,
 )
 from task_processor.task_registry import registered_tasks
+
+if typing.TYPE_CHECKING:
+    # This import breaks private-package-test workflow in core
+    from tests.unit.task_processor.conftest import GetTaskProcessorCaplog
+
 
 DEFAULT_CACHE_KEY = "foo"
 DEFAULT_CACHE_VALUE = "bar"
@@ -63,6 +70,83 @@ def test_run_task_runs_task_and_creates_task_run_object_when_success(db):
     assert task.completed
 
 
+def test_run_task_kills_task_after_timeout(
+    db: None,
+    get_task_processor_caplog: "GetTaskProcessorCaplog",
+) -> None:
+    # Given
+    caplog = get_task_processor_caplog(logging.ERROR)
+    task = Task.create(
+        _sleep.task_identifier,
+        scheduled_for=timezone.now(),
+        args=(1,),
+        timeout=timedelta(microseconds=1),
+    )
+    task.save()
+
+    # When
+    task_runs = run_tasks()
+
+    # Then
+    assert len(task_runs) == TaskRun.objects.filter(task=task).count() == 1
+    task_run = task_runs[0]
+    assert task_run.result == TaskResult.FAILURE
+    assert task_run.started_at
+    assert task_run.finished_at is None
+    assert "TimeoutError" in task_run.error_details
+
+    task.refresh_from_db()
+
+    assert task.completed is False
+    assert task.num_failures == 1
+    assert task.is_locked is False
+
+    assert len(caplog.records) == 1
+    assert caplog.records[0].message == (
+        f"Failed to execute task '{task.task_identifier}', with id {task.id}. Exception: TimeoutError()"
+    )
+
+
+def test_run_recurring_task_kills_task_after_timeout(
+    db: None,
+    monkeypatch: MonkeyPatch,
+    get_task_processor_caplog: "GetTaskProcessorCaplog",
+) -> None:
+    # Given
+    caplog = get_task_processor_caplog(logging.ERROR)
+    monkeypatch.setenv("RUN_BY_PROCESSOR", "True")
+
+    @register_recurring_task(
+        run_every=timedelta(seconds=1), timeout=timedelta(microseconds=1)
+    )
+    def _dummy_recurring_task():
+        time.sleep(1)
+
+    task = RecurringTask.objects.get(
+        task_identifier=_dummy_recurring_task.task_identifier
+    )
+    # When
+    task_runs = run_recurring_tasks()
+
+    # Then
+    assert len(task_runs) == RecurringTaskRun.objects.filter(task=task).count() == 1
+    task_run = task_runs[0]
+    assert task_run.result == TaskResult.FAILURE
+    assert task_run.started_at
+    assert task_run.finished_at is None
+    assert "TimeoutError" in task_run.error_details
+
+    task.refresh_from_db()
+
+    assert task.locked_at is None
+    assert task.is_locked is False
+
+    assert len(caplog.records) == 1
+    assert caplog.records[0].message == (
+        f"Failed to execute task '{task.task_identifier}', with id {task.id}. Exception: TimeoutError()"
+    )
+
+
 def test_run_recurring_tasks_runs_task_and_creates_recurring_task_run_object_when_success(
     db,
     monkeypatch,
@@ -89,6 +173,44 @@ def test_run_recurring_tasks_runs_task_and_creates_recurring_task_run_object_whe
     assert task_run.started_at
     assert task_run.finished_at
     assert task_run.error_details is None
+
+
+def test_run_recurring_tasks_runs_locked_task_after_tiemout(
+    db: None,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    # Given
+    monkeypatch.setenv("RUN_BY_PROCESSOR", "True")
+
+    @register_recurring_task(run_every=timedelta(hours=1))
+    def _dummy_recurring_task():
+        cache.set(DEFAULT_CACHE_KEY, DEFAULT_CACHE_VALUE)
+
+    task = RecurringTask.objects.get(
+        task_identifier=_dummy_recurring_task.task_identifier
+    )
+    task.is_locked = True
+    task.locked_at = timezone.now() - timedelta(hours=1)
+    task.save()
+
+    # When
+    assert cache.get(DEFAULT_CACHE_KEY) is None
+    task_runs = run_recurring_tasks()
+
+    # Then
+    assert cache.get(DEFAULT_CACHE_KEY) == DEFAULT_CACHE_VALUE
+
+    assert len(task_runs) == RecurringTaskRun.objects.filter(task=task).count() == 1
+    task_run = task_runs[0]
+    assert task_run.result == TaskResult.SUCCESS
+    assert task_run.started_at
+    assert task_run.finished_at
+    assert task_run.error_details is None
+
+    # And the task is no longer locked
+    task.refresh_from_db()
+    assert task.is_locked is False
+    assert task.locked_at is None
 
 
 @pytest.mark.django_db(transaction=True)
@@ -211,12 +333,11 @@ def test_run_recurring_tasks_deletes_the_task_if_unregistered_task_is_old(
 
 
 def test_run_task_runs_task_and_creates_task_run_object_when_failure(
-    db: None, caplog: pytest.LogCaptureFixture
+    db: None,
+    get_task_processor_caplog: "GetTaskProcessorCaplog",
 ) -> None:
     # Given
-    task_processor_logger = logging.getLogger("task_processor")
-    task_processor_logger.propagate = True
-    task_processor_logger.level = logging.DEBUG
+    caplog = get_task_processor_caplog(logging.DEBUG)
 
     msg = "Error!"
     task = Task.create(
@@ -243,7 +364,7 @@ def test_run_task_runs_task_and_creates_task_run_object_when_failure(
     log_record = caplog.records[0]
     assert log_record.levelname == "ERROR"
     assert log_record.message == (
-        f"Failed to execute task '{task.task_identifier}'. Exception was: {msg}"
+        f"Failed to execute task '{task.task_identifier}', with id {task.id}. Exception: {msg}"
     )
 
     debug_log_args, debug_log_kwargs = caplog.records[1:]

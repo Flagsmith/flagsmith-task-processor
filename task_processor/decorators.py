@@ -26,6 +26,7 @@ class TaskHandler(typing.Generic[P]):
         "priority",
         "transaction_on_commit",
         "task_identifier",
+        "timeout",
     )
 
     unwrapped: typing.Callable[P, None]
@@ -38,11 +39,13 @@ class TaskHandler(typing.Generic[P]):
         queue_size: int | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         transaction_on_commit: bool = True,
+        timeout: timedelta | None = None,
     ) -> None:
         self.unwrapped = f
         self.queue_size = queue_size
         self.priority = priority
         self.transaction_on_commit = transaction_on_commit
+        self.timeout = timeout
 
         task_name = task_name or f.__name__
         task_module = getmodule(f).__name__.rsplit(".")[-1]
@@ -87,6 +90,7 @@ class TaskHandler(typing.Generic[P]):
                     scheduled_for=delay_until or timezone.now(),
                     priority=self.priority,
                     queue_size=self.queue_size,
+                    timeout=self.timeout,
                     args=args,
                     kwargs=kwargs,
                 )
@@ -124,6 +128,7 @@ def register_task_handler(  # noqa: C901
     queue_size: int | None = None,
     priority: TaskPriority = TaskPriority.NORMAL,
     transaction_on_commit: bool = True,
+    timeout: timedelta | None = timedelta(seconds=60),
 ) -> typing.Callable[[typing.Callable[P, None]], TaskHandler[P]]:
     """
     Turn a function into an asynchronous task.
@@ -150,6 +155,7 @@ def register_task_handler(  # noqa: C901
             queue_size=queue_size,
             priority=priority,
             transaction_on_commit=transaction_on_commit,
+            timeout=timeout,
         )
 
     return wrapper
@@ -161,6 +167,7 @@ def register_recurring_task(
     args: tuple[typing.Any] = (),
     kwargs: dict[str, typing.Any] | None = None,
     first_run_time: time | None = None,
+    timeout: timedelta | None = timedelta(minutes=30),
 ) -> typing.Callable[[typing.Callable[..., None]], RecurringTask]:
     if not os.environ.get("RUN_BY_PROCESSOR"):
         # Do not register recurring tasks if not invoked by task processor
@@ -182,6 +189,7 @@ def register_recurring_task(
                 "serialized_kwargs": RecurringTask.serialize_data(kwargs or {}),
                 "run_every": run_every,
                 "first_run_time": first_run_time,
+                "timeout": timeout,
             },
         )
         return task
