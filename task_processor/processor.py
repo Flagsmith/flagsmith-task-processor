@@ -26,6 +26,8 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
     tasks = Task.objects.get_tasks_to_process(num_tasks)
 
     if tasks:
+        logger.debug(f"Running {len(tasks)} task(s)")
+
         executed_tasks = []
         task_runs = []
 
@@ -43,10 +45,10 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
 
         if task_runs:
             TaskRun.objects.bulk_create(task_runs)
+            logger.debug(f"Finished running {len(task_runs)} task(s)")
 
         return task_runs
 
-    logger.debug("No tasks to process.")
     return []
 
 
@@ -56,6 +58,8 @@ def run_recurring_tasks() -> typing.List[RecurringTaskRun]:
     # a problem for now, but we should be mindful of this limitation
     tasks = RecurringTask.objects.get_tasks_to_process()
     if tasks:
+        logger.debug(f"Running {len(tasks)} recurring task(s)")
+
         task_runs = []
 
         for task in tasks:
@@ -81,14 +85,17 @@ def run_recurring_tasks() -> typing.List[RecurringTaskRun]:
 
         if task_runs:
             RecurringTaskRun.objects.bulk_create(task_runs)
+            logger.debug(f"Finished running {len(task_runs)} recurring task(s)")
 
         return task_runs
 
-    logger.debug("No tasks to process.")
     return []
 
 
 def _run_task(task: typing.Union[Task, RecurringTask]) -> typing.Tuple[Task, TaskRun]:
+    logger.debug(
+        f"Running task {task.task_identifier} id={task.id} args={task.args} kwargs={task.kwargs}"
+    )
     task_run = task.task_runs.model(started_at=timezone.now(), task=task)
 
     try:
@@ -100,6 +107,7 @@ def _run_task(task: typing.Union[Task, RecurringTask]) -> typing.Tuple[Task, Tas
         task_run.result = TaskResult.SUCCESS
         task_run.finished_at = timezone.now()
         task.mark_success()
+        logger.debug(f"Task {task.task_identifier} id={task.id} completed")
 
     except Exception as e:
         # For errors that don't include a default message (e.g., TimeoutError),
@@ -113,8 +121,6 @@ def _run_task(task: typing.Union[Task, RecurringTask]) -> typing.Tuple[Task, Tas
             err_msg,
             exc_info=True,
         )
-        logger.debug("args: %s", str(task.args))
-        logger.debug("kwargs: %s", str(task.kwargs))
 
         task.mark_failure()
 
