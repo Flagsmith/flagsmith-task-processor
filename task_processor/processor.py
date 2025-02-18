@@ -26,7 +26,7 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
     tasks = Task.objects.get_tasks_to_process(num_tasks)
 
     if tasks:
-        logger.debug(f"Running {len(tasks)} tasks")
+        logger.debug(f"Running {len(tasks)} task(s)")
 
         executed_tasks = []
         task_runs = []
@@ -45,7 +45,7 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
 
         if task_runs:
             TaskRun.objects.bulk_create(task_runs)
-            logger.debug(f"Finished running {len(task_runs)} tasks")
+            logger.debug(f"Finished running {len(task_runs)} task(s)")
 
         return task_runs
 
@@ -58,7 +58,7 @@ def run_recurring_tasks() -> typing.List[RecurringTaskRun]:
     # a problem for now, but we should be mindful of this limitation
     tasks = RecurringTask.objects.get_tasks_to_process()
     if tasks:
-        logger.debug(f"Running {len(tasks)} recurring tasks")
+        logger.debug(f"Running {len(tasks)} recurring task(s)")
 
         task_runs = []
 
@@ -85,7 +85,7 @@ def run_recurring_tasks() -> typing.List[RecurringTaskRun]:
 
         if task_runs:
             RecurringTaskRun.objects.bulk_create(task_runs)
-            logger.debug(f"Finished running {len(task_runs)} recurring tasks")
+            logger.debug(f"Finished running {len(task_runs)} recurring task(s)")
 
         return task_runs
 
@@ -121,8 +121,6 @@ def _run_task(task: typing.Union[Task, RecurringTask]) -> typing.Tuple[Task, Tas
             err_msg,
             exc_info=True,
         )
-        logger.debug("args: %s", str(task.args))
-        logger.debug("kwargs: %s", str(task.kwargs))
 
         task.mark_failure()
 

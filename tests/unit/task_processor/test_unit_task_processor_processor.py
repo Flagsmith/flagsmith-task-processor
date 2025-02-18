@@ -359,20 +359,16 @@ def test_run_task_runs_task_and_creates_task_run_object_when_failure(
     task.refresh_from_db()
     assert not task.completed
 
-    assert len(caplog.records) == 5
+    expected_log_records = [
+        ("DEBUG", "Running 1 task(s)"),
+        ("DEBUG", f"Running task {task.task_identifier} id={task.id} args={task.args} kwargs={task.kwargs}"),
+        ("ERROR", f"Failed to execute task '{task.task_identifier}', with id {task.id}. Exception: {msg}"),
+        ("DEBUG", "Finished running 1 task(s)")
+    ]
 
-    log_record = caplog.records[0]
-    assert log_record.levelname == "ERROR"
-    assert log_record.message == (
-        f"Failed to execute task '{task.task_identifier}', with id {task.id}. Exception: {msg}"
-    )
-
-    debug_log_args, debug_log_kwargs = caplog.records[1:]
-    assert debug_log_args.levelname == "DEBUG"
-    assert debug_log_args.message == f"args: ['{msg}']"
-
-    assert debug_log_kwargs.levelname == "DEBUG"
-    assert debug_log_kwargs.message == "kwargs: {}"
+    assert expected_log_records == [
+        (record.levelname, record.message) for record in caplog.records
+    ]
 
 
 def test_run_task_runs_failed_task_again(db):
