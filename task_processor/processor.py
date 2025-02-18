@@ -26,6 +26,8 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
     tasks = Task.objects.get_tasks_to_process(num_tasks)
 
     if tasks:
+        logger.debug(f"Running {len(tasks)} tasks")
+
         executed_tasks = []
         task_runs = []
 
@@ -46,7 +48,7 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
 
         return task_runs
 
-    logger.debug("No tasks to process.")
+    logger.trace("No tasks to process.")
     return []
 
 
@@ -80,15 +82,17 @@ def run_recurring_tasks() -> typing.List[RecurringTaskRun]:
         RecurringTask.objects.bulk_update(to_update, fields=["is_locked", "locked_at"])
 
         if task_runs:
+            logger.debug(f"Running {len(task_runs)} recurring tasks")
             RecurringTaskRun.objects.bulk_create(task_runs)
 
         return task_runs
 
-    logger.debug("No tasks to process.")
+    logger.trace("No recurring tasks to process.")
     return []
 
 
 def _run_task(task: typing.Union[Task, RecurringTask]) -> typing.Tuple[Task, TaskRun]:
+    logger.debug(f"Running task {task.task_identifier} id={task.id} args={task.args} kwargs={task.kwargs}")
     task_run = task.task_runs.model(started_at=timezone.now(), task=task)
 
     try:
@@ -100,6 +104,7 @@ def _run_task(task: typing.Union[Task, RecurringTask]) -> typing.Tuple[Task, Tas
         task_run.result = TaskResult.SUCCESS
         task_run.finished_at = timezone.now()
         task.mark_success()
+        logger.debug(f"Task {task.task_identifier} id={task.id} completed")
 
     except Exception as e:
         # For errors that don't include a default message (e.g., TimeoutError),
