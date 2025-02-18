@@ -361,9 +361,15 @@ def test_run_task_runs_task_and_creates_task_run_object_when_failure(
 
     expected_log_records = [
         ("DEBUG", "Running 1 task(s)"),
-        ("DEBUG", f"Running task {task.task_identifier} id={task.id} args={task.args} kwargs={task.kwargs}"),
-        ("ERROR", f"Failed to execute task '{task.task_identifier}', with id {task.id}. Exception: {msg}"),
-        ("DEBUG", "Finished running 1 task(s)")
+        (
+            "DEBUG",
+            f"Running task {task.task_identifier} id={task.id} args={task.args} kwargs={task.kwargs}",
+        ),
+        (
+            "ERROR",
+            f"Failed to execute task '{task.task_identifier}', with id {task.id}. Exception: {msg}",
+        ),
+        ("DEBUG", "Finished running 1 task(s)"),
     ]
 
     assert expected_log_records == [
