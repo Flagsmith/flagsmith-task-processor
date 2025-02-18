@@ -92,7 +92,9 @@ def run_recurring_tasks() -> typing.List[RecurringTaskRun]:
 
 
 def _run_task(task: typing.Union[Task, RecurringTask]) -> typing.Tuple[Task, TaskRun]:
-    logger.debug(f"Running task {task.task_identifier} id={task.id} args={task.args} kwargs={task.kwargs}")
+    logger.debug(
+        f"Running task {task.task_identifier} id={task.id} args={task.args} kwargs={task.kwargs}"
+    )
     task_run = task.task_runs.model(started_at=timezone.now(), task=task)
 
     try:
