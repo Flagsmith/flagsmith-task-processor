@@ -45,6 +45,7 @@ def run_tasks(num_tasks: int = 1) -> typing.List[TaskRun]:
 
         if task_runs:
             TaskRun.objects.bulk_create(task_runs)
+            logger.debug(f"Finished running {len(task_runs)} tasks")
 
         return task_runs
 
@@ -57,6 +58,8 @@ def run_recurring_tasks() -> typing.List[RecurringTaskRun]:
     # a problem for now, but we should be mindful of this limitation
     tasks = RecurringTask.objects.get_tasks_to_process()
     if tasks:
+        logger.debug(f"Running {len(tasks)} recurring tasks")
+
         task_runs = []
 
         for task in tasks:
@@ -81,8 +84,8 @@ def run_recurring_tasks() -> typing.List[RecurringTaskRun]:
         RecurringTask.objects.bulk_update(to_update, fields=["is_locked", "locked_at"])
 
         if task_runs:
-            logger.debug(f"Running {len(task_runs)} recurring tasks")
             RecurringTaskRun.objects.bulk_create(task_runs)
+            logger.debug(f"Finished running {len(task_runs)} recurring tasks")
 
         return task_runs
 
