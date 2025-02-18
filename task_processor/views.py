@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
-from task_processor.models import Task
+from task_processor.monitoring import get_num_waiting_tasks
 from task_processor.serializers import MonitoringSerializer
 
 
@@ -11,7 +11,7 @@ from task_processor.serializers import MonitoringSerializer
 @api_view(http_method_names=["GET"])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def monitoring(request, **kwargs):
-    waiting_tasks = Task.objects.filter(num_failures__lt=3, completed=False).count()
     return Response(
-        data={"waiting": waiting_tasks}, headers={"Content-Type": "application/json"}
+        data={"waiting": get_num_waiting_tasks()},
+        headers={"Content-Type": "application/json"},
     )
