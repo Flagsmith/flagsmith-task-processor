@@ -359,7 +359,7 @@ def test_run_task_runs_task_and_creates_task_run_object_when_failure(
     task.refresh_from_db()
     assert not task.completed
 
-    assert len(caplog.records) == 3
+    assert len(caplog.records) == 5
 
     log_record = caplog.records[0]
     assert log_record.levelname == "ERROR"
