@@ -7,7 +7,8 @@ from datetime import timedelta
 from django.core.management import BaseCommand
 from django.utils import timezone
 
-from task_processor.task_registry import registered_tasks
+from task_processor.models import RecurringTask
+from task_processor.task_registry import TaskType, registered_tasks
 from task_processor.thread_monitoring import (
     clear_unhealthy_threads,
     write_unhealthy_threads,
@@ -78,6 +79,14 @@ class Command(BaseCommand):
             "Processor starting. Registered tasks are: %s",
             list(registered_tasks.keys()),
         )
+
+        # Update the recurring tasks in the database if needed based on registry
+        for task_identifier, task in registered_tasks.items():
+            if task.task_type == TaskType.RECURRING:
+                RecurringTask.objects.update_or_create(
+                    task_identifier=task_identifier,
+                    defaults=task.task_kwargs,
+                )
 
         for thread in self._threads:
             thread.start()
