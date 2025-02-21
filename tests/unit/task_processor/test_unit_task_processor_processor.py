@@ -10,8 +10,10 @@ from django.core.cache import cache
 from django.utils import timezone
 from freezegun import freeze_time
 from pytest import MonkeyPatch
+from pytest_mock import MockerFixture
 
 from task_processor.decorators import (
+    TaskHandler,
     register_recurring_task,
     register_task_handler,
 )
@@ -28,7 +30,7 @@ from task_processor.processor import (
     run_recurring_tasks,
     run_tasks,
 )
-from task_processor.task_registry import registered_tasks
+from task_processor.task_registry import initialise, registered_tasks
 
 if typing.TYPE_CHECKING:
     # This import breaks private-package-test workflow in core
@@ -45,10 +47,40 @@ def reset_cache():
     cache.clear()
 
 
-def test_run_task_runs_task_and_creates_task_run_object_when_success(db):
+@pytest.fixture
+def dummy_task(db: None) -> TaskHandler:
+    @register_task_handler()
+    def _dummy_task(key: str = DEFAULT_CACHE_KEY, value: str = DEFAULT_CACHE_VALUE):
+        """function used to test that task is being run successfully"""
+        cache.set(key, value)
+
+    return _dummy_task
+
+
+@pytest.fixture
+def raise_exception_task(db: None) -> TaskHandler:
+    @register_task_handler()
+    def _raise_exception_task(msg: str):
+        raise Exception(msg)
+
+    return _raise_exception_task
+
+
+@pytest.fixture
+def sleep_task(db: None) -> TaskHandler:
+    @register_task_handler()
+    def _sleep_task(seconds: int):
+        time.sleep(seconds)
+
+    return _sleep_task
+
+
+def test_run_task_runs_task_and_creates_task_run_object_when_success(
+    dummy_task: TaskHandler,
+):
     # Given
     task = Task.create(
-        _dummy_task.task_identifier,
+        dummy_task.task_identifier,
         scheduled_for=timezone.now(),
     )
     task.save()
@@ -71,13 +103,13 @@ def test_run_task_runs_task_and_creates_task_run_object_when_success(db):
 
 
 def test_run_task_kills_task_after_timeout(
-    db: None,
+    sleep_task: TaskHandler,
     get_task_processor_caplog: "GetTaskProcessorCaplog",
 ) -> None:
     # Given
     caplog = get_task_processor_caplog(logging.ERROR)
     task = Task.create(
-        _sleep.task_identifier,
+        sleep_task.task_identifier,
         scheduled_for=timezone.now(),
         args=(1,),
         timeout=timedelta(microseconds=1),
@@ -122,8 +154,10 @@ def test_run_recurring_task_kills_task_after_timeout(
     def _dummy_recurring_task():
         time.sleep(1)
 
+    initialise()
+
     task = RecurringTask.objects.get(
-        task_identifier=_dummy_recurring_task.task_identifier
+        task_identifier="test_unit_task_processor_processor._dummy_recurring_task",
     )
     # When
     task_runs = run_recurring_tasks()
@@ -158,8 +192,10 @@ def test_run_recurring_tasks_runs_task_and_creates_recurring_task_run_object_whe
     def _dummy_recurring_task():
         cache.set(DEFAULT_CACHE_KEY, DEFAULT_CACHE_VALUE)
 
+    initialise()
+
     task = RecurringTask.objects.get(
-        task_identifier=_dummy_recurring_task.task_identifier
+        task_identifier="test_unit_task_processor_processor._dummy_recurring_task",
     )
     # When
     task_runs = run_recurring_tasks()
@@ -186,8 +222,10 @@ def test_run_recurring_tasks_runs_locked_task_after_tiemout(
     def _dummy_recurring_task():
         cache.set(DEFAULT_CACHE_KEY, DEFAULT_CACHE_VALUE)
 
+    initialise()
+
     task = RecurringTask.objects.get(
-        task_identifier=_dummy_recurring_task.task_identifier
+        task_identifier="test_unit_task_processor_processor._dummy_recurring_task",
     )
     task.is_locked = True
     task.locked_at = timezone.now() - timedelta(hours=1)
@@ -221,8 +259,10 @@ def test_run_recurring_tasks_multiple_runs(db, run_by_processor):
         val = cache.get(DEFAULT_CACHE_KEY, 0) + 1
         cache.set(DEFAULT_CACHE_KEY, val)
 
+    initialise()
+
     task = RecurringTask.objects.get(
-        task_identifier=_dummy_recurring_task.task_identifier
+        task_identifier="test_unit_task_processor_processor._dummy_recurring_task",
     )
 
     # When
@@ -265,8 +305,10 @@ def test_run_recurring_tasks_only_executes_tasks_after_interval_set_by_run_every
         val = cache.get(DEFAULT_CACHE_KEY, 0) + 1
         cache.set(DEFAULT_CACHE_KEY, val)
 
+    initialise()
+
     task = RecurringTask.objects.get(
-        task_identifier=_dummy_recurring_task.task_identifier
+        task_identifier="test_unit_task_processor_processor._dummy_recurring_task",
     )
 
     # When - we call run_recurring_tasks twice
@@ -293,7 +335,11 @@ def test_run_recurring_tasks_does_nothing_if_unregistered_task_is_new(
     def _a_task():
         pass
 
+    initialise()
+
     # now - remove the task from the registry
+    from task_processor.task_registry import registered_tasks
+
     registered_tasks.pop(task_identifier)
 
     # When
@@ -305,7 +351,9 @@ def test_run_recurring_tasks_does_nothing_if_unregistered_task_is_new(
 
 
 def test_run_recurring_tasks_deletes_the_task_if_unregistered_task_is_old(
-    db: None, run_by_processor: None, caplog: pytest.LogCaptureFixture
+    db: None,
+    run_by_processor: None,
+    mocker: MockerFixture,
 ) -> None:
     # Given
     task_processor_logger = logging.getLogger("task_processor")
@@ -318,6 +366,8 @@ def test_run_recurring_tasks_deletes_the_task_if_unregistered_task_is_old(
         @register_recurring_task(run_every=timedelta(milliseconds=100))
         def _a_task():
             pass
+
+        initialise()
 
     # now - remove the task from the registry
     registered_tasks.pop(task_identifier)
@@ -333,7 +383,7 @@ def test_run_recurring_tasks_deletes_the_task_if_unregistered_task_is_old(
 
 
 def test_run_task_runs_task_and_creates_task_run_object_when_failure(
-    db: None,
+    raise_exception_task: TaskHandler,
     get_task_processor_caplog: "GetTaskProcessorCaplog",
 ) -> None:
     # Given
@@ -341,7 +391,7 @@ def test_run_task_runs_task_and_creates_task_run_object_when_failure(
 
     msg = "Error!"
     task = Task.create(
-        _raise_exception.task_identifier, args=(msg,), scheduled_for=timezone.now()
+        raise_exception_task.task_identifier, args=(msg,), scheduled_for=timezone.now()
     )
     task.save()
 
@@ -377,9 +427,11 @@ def test_run_task_runs_task_and_creates_task_run_object_when_failure(
     ]
 
 
-def test_run_task_runs_failed_task_again(db):
+def test_run_task_runs_failed_task_again(raise_exception_task: TaskHandler):
     # Given
-    task = Task.create(_raise_exception.task_identifier, scheduled_for=timezone.now())
+    task = Task.create(
+        raise_exception_task.task_identifier, scheduled_for=timezone.now()
+    )
     task.save()
 
     # When
@@ -415,6 +467,8 @@ def test_run_recurring_task_runs_task_and_creates_recurring_task_run_object_when
     def _raise_exception(organisation_name):
         raise RuntimeError("test exception")
 
+    initialise()
+
     task = RecurringTask.objects.get(task_identifier=task_identifier)
 
     # When
@@ -439,11 +493,11 @@ def test_run_task_does_nothing_if_no_tasks(db):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_run_task_runs_tasks_in_correct_priority():
+def test_run_task_runs_tasks_in_correct_priority(dummy_task: TaskHandler):
     # Given
     # 2 tasks
     task_1 = Task.create(
-        _dummy_task.task_identifier,
+        dummy_task.task_identifier,
         scheduled_for=timezone.now(),
         args=("task 1 organisation",),
         priority=TaskPriority.HIGH,
@@ -451,7 +505,7 @@ def test_run_task_runs_tasks_in_correct_priority():
     task_1.save()
 
     task_2 = Task.create(
-        _dummy_task.task_identifier,
+        dummy_task.task_identifier,
         scheduled_for=timezone.now(),
         args=("task 2 organisation",),
         priority=TaskPriority.HIGH,
@@ -459,7 +513,7 @@ def test_run_task_runs_tasks_in_correct_priority():
     task_2.save()
 
     task_3 = Task.create(
-        _dummy_task.task_identifier,
+        dummy_task.task_identifier,
         scheduled_for=timezone.now(),
         args=("task 3 organisation",),
         priority=TaskPriority.HIGHEST,
@@ -478,7 +532,10 @@ def test_run_task_runs_tasks_in_correct_priority():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_run_tasks_skips_locked_tasks():
+def test_run_tasks_skips_locked_tasks(
+    dummy_task: TaskHandler,
+    sleep_task: TaskHandler,
+):
     """
     This test verifies that tasks are locked while being executed, and hence
     new task runners are not able to pick up 'in progress' tasks.
@@ -488,13 +545,13 @@ def test_run_tasks_skips_locked_tasks():
     # One which is configured to just sleep for 3 seconds, to simulate a task
     # being held for a short period of time
     task_1 = Task.create(
-        _sleep.task_identifier, scheduled_for=timezone.now(), args=(3,)
+        sleep_task.task_identifier, scheduled_for=timezone.now(), args=(3,)
     )
     task_1.save()
 
     # and another which should create an organisation
     task_2 = Task.create(
-        _dummy_task.task_identifier,
+        dummy_task.task_identifier,
         scheduled_for=timezone.now(),
         args=("task 2 organisation",),
     )
@@ -516,7 +573,7 @@ def test_run_tasks_skips_locked_tasks():
     task_runner_thread.join()
 
 
-def test_run_more_than_one_task(db):
+def test_run_more_than_one_task(dummy_task: TaskHandler):
     # Given
     num_tasks = 5
 
@@ -525,7 +582,7 @@ def test_run_more_than_one_task(db):
         organisation_name = f"test-org-{uuid.uuid4()}"
         tasks.append(
             Task.create(
-                _dummy_task.task_identifier,
+                dummy_task.task_identifier,
                 scheduled_for=timezone.now(),
                 args=(organisation_name,),
             )
@@ -557,6 +614,8 @@ def test_recurring_tasks_are_unlocked_if_picked_up_but_not_executed(
     def my_task():
         pass
 
+    initialise()
+
     recurring_task = RecurringTask.objects.get(
         task_identifier="test_unit_task_processor_processor.my_task"
     )
@@ -578,19 +637,3 @@ def test_recurring_tasks_are_unlocked_if_picked_up_but_not_executed(
     # Then
     recurring_task.refresh_from_db()
     assert recurring_task.is_locked is False
-
-
-@register_task_handler()
-def _dummy_task(key: str = DEFAULT_CACHE_KEY, value: str = DEFAULT_CACHE_VALUE):
-    """function used to test that task is being run successfully"""
-    cache.set(key, value)
-
-
-@register_task_handler()
-def _raise_exception(msg: str):
-    raise Exception(msg)
-
-
-@register_task_handler()
-def _sleep(seconds: int):
-    time.sleep(seconds)

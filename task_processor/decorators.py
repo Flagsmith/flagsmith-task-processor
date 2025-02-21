@@ -9,9 +9,9 @@ from django.conf import settings
 from django.db.transaction import on_commit
 from django.utils import timezone
 
+from task_processor import task_registry
 from task_processor.exceptions import InvalidArgumentsError, TaskQueueFullError
 from task_processor.models import RecurringTask, Task, TaskPriority
-from task_processor.task_registry import register_task
 from task_processor.task_run_method import TaskRunMethod
 
 P = typing.ParamSpec("P")
@@ -50,7 +50,7 @@ class TaskHandler(typing.Generic[P]):
         task_name = task_name or f.__name__
         task_module = getmodule(f).__name__.rsplit(".")[-1]
         self.task_identifier = task_identifier = f"{task_module}.{task_name}"
-        register_task(task_identifier, f)
+        task_registry.register_task(task_identifier, f)
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> None:
         _validate_inputs(*args, **kwargs)
@@ -168,31 +168,27 @@ def register_recurring_task(
     kwargs: dict[str, typing.Any] | None = None,
     first_run_time: time | None = None,
     timeout: timedelta | None = timedelta(minutes=30),
-) -> typing.Callable[[typing.Callable[..., None]], RecurringTask]:
+) -> typing.Callable[[typing.Callable[..., None]], None]:
     if not os.environ.get("RUN_BY_PROCESSOR"):
         # Do not register recurring tasks if not invoked by task processor
         return lambda f: f
 
-    def decorator(f: typing.Callable[..., None]) -> RecurringTask:
+    def decorator(f: typing.Callable[..., None]) -> None:
         nonlocal task_name
 
         task_name = task_name or f.__name__
         task_module = getmodule(f).__name__.rsplit(".")[-1]
         task_identifier = f"{task_module}.{task_name}"
 
-        register_task(task_identifier, f)
+        task_kwargs = {
+            "serialized_args": RecurringTask.serialize_data(args or ()),
+            "serialized_kwargs": RecurringTask.serialize_data(kwargs or {}),
+            "run_every": run_every,
+            "first_run_time": first_run_time,
+            "timeout": timeout,
+        }
 
-        task, _ = RecurringTask.objects.update_or_create(
-            task_identifier=task_identifier,
-            defaults={
-                "serialized_args": RecurringTask.serialize_data(args or ()),
-                "serialized_kwargs": RecurringTask.serialize_data(kwargs or {}),
-                "run_every": run_every,
-                "first_run_time": first_run_time,
-                "timeout": timeout,
-            },
-        )
-        return task
+        task_registry.register_recurring_task(task_identifier, f, **task_kwargs)
 
     return decorator
 
