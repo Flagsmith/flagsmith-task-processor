@@ -3,6 +3,8 @@ import typing
 
 import pytest
 
+from task_processor.task_registry import RegisteredTask
+
 
 @pytest.fixture
 def run_by_processor(monkeypatch):
@@ -33,3 +35,11 @@ def get_task_processor_caplog(
         return caplog
 
     return _inner
+
+
+@pytest.fixture(autouse=True)
+def task_registry() -> typing.Generator[dict[str, RegisteredTask], None, None]:
+    from task_processor.task_registry import registered_tasks
+
+    registered_tasks.clear()
+    yield registered_tasks

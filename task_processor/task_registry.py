@@ -22,6 +22,28 @@ class RegisteredTask:
 registered_tasks: typing.Dict[str, RegisteredTask] = {}
 
 
+def initialise() -> None:
+    global registered_tasks
+
+    from task_processor.models import RecurringTask
+
+    for task_identifier, registered_task in registered_tasks.items():
+        logger.debug("Initialising task '%s'", task_identifier)
+
+        if registered_task.task_type == TaskType.RECURRING:
+            logger.debug("Persisting recurring task '%s'", task_identifier)
+            RecurringTask.objects.update_or_create(
+                task_identifier=task_identifier,
+                defaults=registered_task.task_kwargs,
+            )
+
+
+def get_task(task_identifier: str) -> RegisteredTask:
+    global registered_tasks
+
+    return registered_tasks[task_identifier]
+
+
 def register_task(task_identifier: str, callable_: typing.Callable) -> None:
     global registered_tasks
 

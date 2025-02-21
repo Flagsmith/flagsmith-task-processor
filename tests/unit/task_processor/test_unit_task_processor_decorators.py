@@ -14,7 +14,7 @@ from task_processor.decorators import (
 )
 from task_processor.exceptions import InvalidArgumentsError
 from task_processor.models import RecurringTask, Task, TaskPriority
-from task_processor.task_registry import get_task
+from task_processor.task_registry import get_task, initialise
 from task_processor.task_run_method import TaskRunMethod
 
 if typing.TYPE_CHECKING:
@@ -113,6 +113,8 @@ def test_register_recurring_task(mocker, db, run_by_processor):
         return first_arg + second_arg
 
     # Then
+    initialise()
+
     task = RecurringTask.objects.get(task_identifier=task_identifier)
     assert task.serialized_kwargs == json.dumps(task_kwargs)
     assert task.run_every == run_every
