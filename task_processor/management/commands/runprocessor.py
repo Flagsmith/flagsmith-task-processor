@@ -8,10 +8,6 @@ from django.core.management import BaseCommand
 from django.utils import timezone
 
 from task_processor.task_registry import initialise
-from task_processor.thread_monitoring import (
-    clear_unhealthy_threads,
-    write_unhealthy_threads,
-)
 from task_processor.threads import TaskRunner
 
 logger = logging.getLogger(__name__)
@@ -81,14 +77,16 @@ class Command(BaseCommand):
         for thread in self._threads:
             thread.start()
 
-        clear_unhealthy_threads()
         while self._monitor_threads:
             time.sleep(1)
             unhealthy_threads = self._get_unhealthy_threads(
                 ms_before_unhealthy=grace_period_ms + sleep_interval_ms
             )
             if unhealthy_threads:
-                write_unhealthy_threads(unhealthy_threads)
+                logger.warning(
+                    "Unhealthy threads detected: %s",
+                    [t.name for t in unhealthy_threads],
+                )
 
         [t.join() for t in self._threads]
 
