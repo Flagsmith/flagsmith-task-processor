@@ -47,18 +47,11 @@ def get_task(task_identifier: str) -> RegisteredTask:
 def register_task(task_identifier: str, callable_: typing.Callable) -> None:
     global registered_tasks
 
-    logger.debug("Registering task '%s'", task_identifier)
-
     registered_task = RegisteredTask(
         task_identifier=task_identifier,
         task_function=callable_,
     )
     registered_tasks[task_identifier] = registered_task
-
-    logger.debug(
-        "Registered tasks now has the following tasks registered: %s",
-        list(registered_tasks.keys()),
-    )
 
 
 def register_recurring_task(
