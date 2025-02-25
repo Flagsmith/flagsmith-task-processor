@@ -68,7 +68,8 @@ class AbstractBaseTask(models.Model):
     @property
     def callable(self) -> typing.Callable:
         try:
-            return registered_tasks[self.task_identifier]
+            task = registered_tasks[self.task_identifier]
+            return task.task_function
         except KeyError as e:
             raise TaskProcessingError(
                 "No task registered with identifier '%s'. Ensure your task is "

@@ -7,7 +7,7 @@ from datetime import timedelta
 from django.core.management import BaseCommand
 from django.utils import timezone
 
-from task_processor.task_registry import registered_tasks
+from task_processor.task_registry import initialise
 from task_processor.thread_monitoring import (
     clear_unhealthy_threads,
     write_unhealthy_threads,
@@ -74,10 +74,9 @@ class Command(BaseCommand):
             ]
         )
 
-        logger.info(
-            "Processor starting. Registered tasks are: %s",
-            list(registered_tasks.keys()),
-        )
+        logger.info("Processor starting")
+
+        initialise()
 
         for thread in self._threads:
             thread.start()

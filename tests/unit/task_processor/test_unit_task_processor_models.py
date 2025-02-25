@@ -6,22 +6,24 @@ from django.utils import timezone
 
 from task_processor.decorators import register_task_handler
 from task_processor.models import RecurringTask, Task
+from task_processor.task_registry import initialise
 
 now = timezone.now()
 one_hour_ago = now - timedelta(hours=1)
 one_hour_from_now = now + timedelta(hours=1)
 
 
-@register_task_handler()
-def my_callable(arg_one: str, arg_two: str = None):
-    """Example callable to use for tasks (needs to be global for registering to work)"""
-    return arg_one, arg_two
-
-
 def test_task_run():
     # Given
+    @register_task_handler()
+    def my_callable(arg_one: str, arg_two: str = None):
+        """Example callable to use for tasks (needs to be global for registering to work)"""
+        return arg_one, arg_two
+
     args = ["foo"]
     kwargs = {"arg_two": "bar"}
+
+    initialise()
 
     task = Task.create(
         my_callable.task_identifier,
