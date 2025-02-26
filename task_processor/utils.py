@@ -25,5 +25,9 @@ def run_server(
     app_uri: str = "app.wsgi",
     options: dict[str, str] | None = None,
 ) -> None:
-    options = options or {"worker_class": "sync", "workers": 1}
+    options = options or {}
+    # Defaults suitable for Task processor configuration
+    # intended to only serve the health check endpoints
+    options.setdefault("worker_class", "sync")
+    options.setdefault("workers", 1)
     _WSGIApplication(app_uri, options).run()
