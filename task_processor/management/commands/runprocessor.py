@@ -1,14 +1,12 @@
 import logging
-import signal
-import time
 from argparse import ArgumentParser
-from datetime import timedelta
 
 from django.core.management import BaseCommand
-from django.utils import timezone
+from gunicorn.config import Config
 
-from task_processor.task_registry import initialise
-from task_processor.threads import TaskRunner
+from task_processor.threads import TaskRunner, TaskRunnerCoordinator
+from task_processor.types import TaskProcessorConfig
+from task_processor.utils import run_server
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +14,6 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        signal.signal(signal.SIGINT, self._exit_gracefully)
-        signal.signal(signal.SIGTERM, self._exit_gracefully)
 
         self._threads: list[TaskRunner] = []
         self._monitor_threads = True
@@ -48,62 +43,27 @@ class Command(BaseCommand):
             help="Number of tasks each worker will pop from the queue on each cycle.",
             default=10,
         )
+        parser.add_subparsers(dest="gunicorn").add_parser(
+            "gunicorn arguments",
+            add_help=False,
+            aliases=["gunicorn"],
+            parents=[Config().parser()],
+        )
 
     def handle(self, *args, **options):
-        num_threads = options["numthreads"]
-        sleep_interval_ms = options["sleepintervalms"]
-        grace_period_ms = options["graceperiodms"]
-        queue_pop_size = options["queuepopsize"]
-
-        logger.debug(
-            "Running task processor with args: %s",
-            ",".join([f"{k}={v}" for k, v in options.items()]),
+        config = TaskProcessorConfig(
+            num_threads=options["numthreads"],
+            sleep_interval_ms=options["sleepintervalms"],
+            grace_period_ms=options["graceperiodms"],
+            queue_pop_size=options["queuepopsize"],
         )
 
-        self._threads.extend(
-            [
-                TaskRunner(
-                    sleep_interval_millis=sleep_interval_ms,
-                    queue_pop_size=queue_pop_size,
-                )
-                for _ in range(num_threads)
-            ]
-        )
+        logger.debug("Config: %s", config)
 
-        logger.info("Processor starting")
+        coordinator = TaskRunnerCoordinator(config=config)
+        coordinator.start()
 
-        initialise()
-
-        for thread in self._threads:
-            thread.start()
-
-        while self._monitor_threads:
-            time.sleep(1)
-            unhealthy_threads = self._get_unhealthy_threads(
-                ms_before_unhealthy=grace_period_ms + sleep_interval_ms
-            )
-            if unhealthy_threads:
-                logger.warning(
-                    "Unhealthy threads detected: %s",
-                    [t.name for t in unhealthy_threads],
-                )
-
-        [t.join() for t in self._threads]
-
-    def _exit_gracefully(self, *args):
-        self._monitor_threads = False
-        for t in self._threads:
-            t.stop()
-
-    def _get_unhealthy_threads(self, ms_before_unhealthy: int) -> list[TaskRunner]:
-        unhealthy_threads = []
-        healthy_threshold = timezone.now() - timedelta(milliseconds=ms_before_unhealthy)
-
-        for thread in self._threads:
-            if (
-                not thread.is_alive()
-                or not thread.last_checked_for_tasks
-                or thread.last_checked_for_tasks < healthy_threshold
-            ):
-                unhealthy_threads.append(thread)
-        return unhealthy_threads
+        try:
+            run_server(options=options)
+        finally:
+            coordinator.stop()
