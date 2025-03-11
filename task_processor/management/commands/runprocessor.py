@@ -2,6 +2,7 @@ import logging
 from argparse import ArgumentParser
 
 from django.core.management import BaseCommand
+from django.utils.module_loading import autodiscover_modules
 from gunicorn.config import Config
 
 from task_processor.threads import TaskRunner, TaskRunnerCoordinator
@@ -59,6 +60,8 @@ class Command(BaseCommand):
         )
 
         logger.debug("Config: %s", config)
+
+        autodiscover_modules("tasks")
 
         coordinator = TaskRunnerCoordinator(config=config)
         coordinator.start()
